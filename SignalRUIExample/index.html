@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <script src="signalr.min.js"></script>
+    <script src="jquery.min.js"></script>
+    <script>
+      $(document).ready(() => {
+        const connection = new signalR.HubConnectionBuilder()
+          .withUrl("https://localhost:7269/myhub")
+          .withAutomaticReconnect([3000, 2000, 2000]) //defoltda => 0 - 2 - 10 - 30 (saniye)->Baglanti var ama qirilanda bu ise dusur
+          .build();
+        // connection.start();
+        start();
+
+        function animation() {
+          alert.fadeIn(2000, () => {
+            setTimeout(() => {
+              alert.fadeOut(1000);
+            }, 2000);
+          });
+        }
+        const alert = $("#alert");
+        connection.onreconnecting((error) => {
+          alert.css("background-color", "blue");
+          alert.css("color", "white");
+          alert.html("Baglanti qurulur....");
+          animation();
+        });
+        connection.onreconnected((connectionId) => {
+          alert.css("background-color", "green");
+          alert.css("color", "white");
+          alert.html("Baglanti quruldu");
+          animation();
+        });
+
+        connection.onclose((connectionId) => {
+          alert.css("background-color", "red");
+          alert.css("color", "white");
+          alert.html("Baglanti qurulmadi");
+          alert.fadeIn(2000);
+        });
+
+        connection.on("userJoined", (connectionId) => {
+          alert.html(`${connectionId} baglandi`);
+          alert.css("background-color", "green");
+          alert.css("color", "white");
+          animation();
+        });
+        connection.on("userLeaved", (connectionId) => {
+          alert.html(`${connectionId} ayrildi`);
+          alert.css("background-color", "red");
+          alert.css("color", "white");
+          animation();
+        });
+
+        connection.on("clients", (clientsData) => {
+          let text="";
+            $.each(clientsData,(index,item) => {
+              text+=`<li>${item}</li>`;
+              $("#clients").html(text)
+            });
+        });
+
+        $("#btnSend").click(() => {
+          let message = $("#message").val();
+          connection
+            .invoke("SendMessageAsync", message)
+            .catch((error) =>
+              console.log(`Mesaj gonderilirken hata olustu.${error}`)
+            );
+        });
+        connection.on("receiveMessage", (message) => {
+          $("#messages").append(message + "<br>");
+        });
+
+        async function start() {
+          try {
+            await connection.start();
+          } catch (error) {
+            setTimeout(() => start(), 2000);
+          }
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <div id="alert" style="display: none"></div>
+    <input type="text" id="message" />
+    <button type="button" id="btnSend">Send</button>
+    <div id="messages"></div>
+    <div>
+      <ul id="clients"></ul>
+    </div>
+  </body>
+</html>
